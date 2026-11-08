@@ -1,10 +1,10 @@
 # Soliskit
 
-Soliskit helps people grow comfortable with AI by teaching them to do their work with it.
+Soliskit's portfolio: Pinto, Tetris, and every project Soliskit makes next.
 
 ## The website
 
-soliskit.com is Soliskit's portfolio. Its job is to show off Pinto and Tetris, and every project Soliskit makes next. The portfolio is the start; the site grows with the company.
+soliskit.com is where the portfolio lives. The portfolio is the start; the site grows with the company.
 
 ## How it works
 
