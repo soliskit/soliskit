@@ -4,18 +4,18 @@ Soliskit helps people grow comfortable with AI by teaching them to do their work
 
 ## The website
 
-soliskit.com is the home of the company. One page introduces Soliskit, what it believes, what it makes, and who runs it, and links to everything it publishes.
+soliskit.com is Soliskit's portfolio. Its job is to show off Pinto and Tetris, and every project Soliskit makes next. The portfolio is the start; the site grows with the company.
 
 ## How it works
 
-**Meet the company.** The home page tells the founding story: why Soliskit exists, told through the conversations that shaped it.
+**Meet the projects.** One page introduces Soliskit and who runs it, and links to each app.
 
-**Use the projects.** Cards link to each finished app. Play Tetris at soliskit.com/tetris. Open a video call link at meet.soliskit.com. Every app runs in the browser with nothing to install.
+**Open Pinto.** Video calls run in the browser, with nothing to install. Pinto lives at meet.soliskit.com.
 
-**Learn.** Short posts teach one idea at a time, with starter files a reader can take into their own AI tools.
+**Play Tetris.** The classic game, rebuilt for the browser. Tetris lives at soliskit.com/tetris.
 
-**Get in touch.** The contact page signs a visitor in with an email code instead of a password.
+**See what comes next.** New projects join the page as Soliskit makes them.
 
 ## This repository
 
-This repository holds the project's standards and records: what must be true, the evidence behind it, and the checks every change must pass.
+This repository holds the project's standards and records: what must be true, the evidence behind it, and the checks every change must pass. The website itself lives in the soliskit.github.io repository.
