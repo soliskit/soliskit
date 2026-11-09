@@ -1,0 +1,64 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/configure-pages@v6
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./site
+      - uses: actions/checkout@v6
+        with:
+          repository: soliskit/tetris-js
+          ref: main
+          path: tetris-source
+          persist-credentials: false
+      - name: Copy the game to /tetris
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo chown -R "$USER" site
+          test ! -e site/tetris
+          mkdir site/tetris
+          cp -R tetris-source/public/. site/tetris/
+          test -f site/index.html
+          test -f site/tetris/index.html
+          test -f site/tetris/sw.js
+          echo "tetris-js $(git -C tetris-source rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
