@@ -8,7 +8,7 @@ const documents = {
 }
 
 for (const [file, heading] of Object.entries(documents)) {
-  test(`document shell: ${file}`, async () => {
+  void test(`document shell: ${file}`, async () => {
     const content = await readFile(
       new URL(`../docs/${file}`, import.meta.url),
       'utf8'
