@@ -10,6 +10,6 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["**/*.js"],
+  "include": ["**/*.js", "*.mjs", "types/**/*.d.ts"],
   "exclude": ["node_modules"]
 }

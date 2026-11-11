@@ -12,24 +12,16 @@ export default defineConfig(
   promise.configs['flat/recommended'],
   prettierRecommended,
   {
-    // tsconfig.json includes all JS with checkJs, so the project service
+    // tsconfig.json includes JS and MJS with checkJs, so the project service
     // can type it.
-    files: ['**/*.js'],
+    files: ['**/*.{js,mjs}'],
     extends: [
       ...tseslint.configs.recommendedTypeChecked,
       ...tseslint.configs.strictTypeChecked
-    ].map((config) => ({ ...config, files: ['**/*.js'] })),
+    ].map((config) => ({ ...config, files: ['**/*.{js,mjs}'] })),
     languageOptions: {
       parserOptions: { projectService: true }
     }
-  },
-  {
-    // eslint.config.mjs has no tsconfig coverage: untyped rules only.
-    files: ['*.mjs'],
-    extends: [tseslint.configs.disableTypeChecked].map((config) => ({
-      ...config,
-      files: ['*.mjs']
-    }))
   },
   {
     languageOptions: {
