@@ -24,6 +24,10 @@ jobs:
           node-version-file: package.json
           cache: npm
       - run: npm ci
+      - uses: actions/setup-python@v6
+      - run: pip install ruff==0.17.4
+      - run: ruff check .
+      - run: ruff format --check .
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
