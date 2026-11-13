@@ -3,22 +3,105 @@ name: Pages
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
+    inputs:
+      tetris_sha:
+        description: Exact Tetris main source for qualification
+        type: string
+        required: false
+      tetris_test_run_id:
+        description: Successful trusted Tetris main test run
+        type: string
+        required: false
+      site_qualification_run:
+        description: Prior successful qualification in this website workflow
+        type: string
+        required: false
+      pixels_reviewed:
+        description: Exact site qualification run whose 12 screenshots were inspected
+        type: string
+        required: false
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
+  receiver-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+      - run: python3 -m unittest discover -s .github/tests -p 'test_*.py'
+      - run: python3 -m pip install ruff==0.17.4
+      - run: ruff check .github/scripts/tetris_release.py .github/tests
+      - run: ruff format --check .github/scripts/tetris_release.py .github/tests
+
+  qualify:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.site_qualification_run == ''
+    needs: receiver-checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      source: ${{ steps.request.outputs.source }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate exact trusted Tetris main run
+        id: request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_SOURCE: ${{ inputs.tetris_sha }}
+          REQUEST_RUN: ${{ inputs.tetris_test_run_id }}
+        run: python3 .github/scripts/tetris_release.py resolve
+      - uses: actions/checkout@v7
+        with:
+          repository: soliskit/tetris-js
+          ref: ${{ steps.request.outputs.source }}
+          path: tetris-source
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26.13.0
+          package-manager-cache: false
+      - name: Run the reviewed owned qualification on exact main source
+        working-directory: tetris-source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALIFICATION_HEAD: ${{ steps.request.outputs.source }}
+          QUALIFICATION_SOURCE_MODE: main
+          QUALIFICATION_EVIDENCE: ${{ runner.temp }}/tetris-qualification
+        run: python3 .github/offline-current/supervise.py
+      - name: Package the exact checked release and screenshot proofs
+        env:
+          QUALIFICATION_EVIDENCE: ${{ runner.temp }}/tetris-qualification
+        run: python3 .github/scripts/tetris_release.py package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: qualified-tetris-${{ github.run_id }}
+          path: qualified-tetris/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Record review boundary
+        run: echo 'Qualification receipts uploaded. Deployment is held until the 12 screenshots from this exact run are inspected and that run is selected for publication.' >> "$GITHUB_STEP_SUMMARY"
+
   build:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.site_qualification_run != ''
+    needs: receiver-checks
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/configure-pages@v6
@@ -26,32 +109,53 @@ jobs:
         with:
           source: ./
           destination: ./site
-      - uses: actions/checkout@v6
-        with:
-          repository: soliskit/tetris-js
-          ref: main
-          path: tetris-source
-          persist-credentials: false
-      - name: Copy the game to /tetris
+      - name: Validate the selected website qualification and artifact
+        id: accepted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SITE_QUALIFICATION_RUN: ${{ inputs.site_qualification_run }}
+        run: python3 .github/scripts/tetris_release.py select-artifact
+      - name: Download only the selected same-repository artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.accepted.outputs.artifact }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            --output artifact.zip \
+            "https://api.github.com/repos/soliskit/soliskit.github.io/actions/artifacts/$ARTIFACT_ID/zip"
+      - name: Verify digest, safe archive inventory and exact pixel-review acknowledgment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_DIGEST: ${{ steps.accepted.outputs.digest }}
+          SITE_QUALIFICATION_RUN: ${{ inputs.site_qualification_run }}
+          PIXELS_REVIEWED: ${{ inputs.pixels_reviewed }}
+        run: python3 .github/scripts/tetris_release.py unpack
+      - name: Copy only the exact checked distribution to /tetris
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           sudo chown -R "$USER" site
-          test ! -e site/tetris
-          mkdir site/tetris
-          cp -R tetris-source/public/. site/tetris/
-          test -f site/index.html
-          test -f site/tetris/index.html
-          test -f site/tetris/sw.js
-          echo "tetris-js $(git -C tetris-source rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          python3 .github/scripts/tetris_release.py compose
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+      - uses: actions/upload-artifact@v7
+        with:
+          name: published-tetris-receipt-${{ github.run_id }}
+          path: accepted-tetris/qualification.json
+          if-no-files-found: error
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.site_qualification_run != ''
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       pages: write
@@ -62,3 +166,11 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+  held:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: receiver-checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: echo 'Website source changed. The prior live site is unchanged. Qualify exact current Tetris main in this workflow, inspect its screenshots, then publish the exact website qualification run. No raw gameplay source is substituted.' >> "$GITHUB_STEP_SUMMARY"
