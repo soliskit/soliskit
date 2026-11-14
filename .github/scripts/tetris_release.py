@@ -132,10 +132,10 @@ def package():
         reports["suites"]
         == {
             "source": {
-                "planned": 450,
-                "passed": 419,
+                "planned": 465,
+                "passed": 434,
                 "expectedFailed": 1,
-                "expected": 420,
+                "expected": 435,
                 "skipped": 30,
             },
             "delivery": {
